@@ -1,0 +1,60 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "department": {
+      "value": "DTS"
+    },
+    "appName": {
+      "value": "AlarmReg"
+    },
+    "environment": {
+      "value": "UAT"
+    },
+    "useHostingPlan": {
+      "value": "DTS-EGov-UAT-asp"
+    },
+    "useAppInsights": {
+      "value": "DTS-Apps-UAT-appi"
+    },
+    "useManagedIdentity":{
+      "value": "DTS-AlarmReg-UAT-id"
+    },
+    "location": {
+      "value": "eastus"
+    },
+    "alwaysOn": {
+      "value": false
+    },
+    "clientAffinityEnabled": {
+      "value": true
+    },
+    "sku": {
+      "value": "S1"
+    },
+    "workerCount": {
+      "value": 0
+    },
+    "webAppSlotList": {
+      "value": "dev"
+    },
+    "vNetResourceGroup": {
+      "value": "ACG-Networking-RG"
+    },
+    "vNetName": {
+      "value": "ACG-IaaS-East"
+    },
+    "subNetName": {
+      "value": "ACG-VNETintegration-EGov-TEST-East"
+    },
+    "privateEndpointVnetName": {
+      "value": "ACG-IaaS-East"
+    },
+    "privateEndpointVnetResourceGroup": {
+      "value": "ACG-Networking-RG"
+    },
+    "privateEndpointSubnetName": {
+      "value": "ACG-AzurePrivateEndpoints-East"
+    }
+  }
+}

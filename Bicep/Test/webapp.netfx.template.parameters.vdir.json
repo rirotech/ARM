@@ -1,0 +1,36 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "department": {
+      "value": "DTS"
+    },
+    "appName": {
+      "value": "VDir"
+    },
+    "environment": {
+      "value": "TST"
+    },
+    "location": {
+      "value": "eastus"
+    },
+    "alwaysOn": {
+      "value": false
+    },
+    "clientAffinityEnabled": {
+      "value": true
+    },
+    "sku": {
+      "value": "S1"
+    },
+    "workerCount": {
+      "value": 0
+    },
+    "webAppSlotList": {
+      "value": "dev"
+    },
+    "virtualDirectories":{
+      "value": "MyVdir"
+    }
+  }
+}

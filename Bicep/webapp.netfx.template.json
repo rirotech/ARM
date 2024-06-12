@@ -1,0 +1,317 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "department" : {
+            "type" : "String", 
+            "metadata":{
+                "description": "Department code for the group responsible for the application."
+            }
+        }, 
+        "appName":{
+            "type": "String", 
+            "metadata":{
+                "description": "The name of the application."
+            }
+        },
+        "environment":{
+            "type": "String",
+            "metadata": {
+                "description": "The name of the target environment (Dev/Test/Etc.)."
+            }
+        },
+        "location": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]",
+            "metadata": {
+                "description": "Location for all resources."
+            }
+        },
+        "alwaysOn": {
+            "type": "bool",
+            "defaultValue": false
+        },
+        "clientAffinityEnabled": {
+            "type": "bool",
+            "defaultValue": false
+        },
+        "sku": {
+            "type": "string",
+            "defaultValue": "S1",
+            "metadata": {
+                "description": "The pricing tier for the hosting plan."
+            }
+        },
+        "workerSize": {
+            "type": "string",
+            "allowedValues": [
+                "0",
+                "1",
+                "2"
+            ],
+            "defaultValue": "0",
+            "metadata": {
+                "description": "The instance size of the hosting plan (small, medium, or large)."
+            }
+        },
+        "webAppSlotList": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Comma delimited list of the Slot Names"
+            }
+        },
+        "webAppDeploySlot": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Name of slot deploying to"
+            }
+        },
+        "vNetResourceGroup": {
+            "type": "string",
+            "metadata": {
+                "description": "The name of the resource group containing the VNet to associate with."
+            },
+            "defaultValue": ""
+        },
+        "vNetName": {
+            "type": "string",
+            "metadata": {
+                "description": "The name of the VNet to associate with."
+            },
+            "defaultValue": ""
+        },
+        "subNetName": {
+            "type": "string",
+            "metadata": {
+                "description": "The name of the subnet on the VNet to associate with."
+            },
+            "defaultValue": ""
+        }
+    },
+    "variables": {
+        "webAppName": "[concat(parameters('department'),'-', parameters('appName'), '-', parameters('environment'), '-app')]",
+        "hostingPlanName": "[concat(parameters('department'),'-', parameters('appName'), '-', parameters('environment'), '-asp')]",
+        "appInsightsName": "[concat(parameters('department'),'-', parameters('appName'), '-', parameters('environment'), '-appi')]",
+        "identityName": "[concat(parameters('department'),'-', parameters('appName'), '-', parameters('environment'), '-id')]",
+        "identity": "[json(concat('{\"type\":\"UserAssigned\",\"userAssignedIdentities\" : {\"',resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')), '\":{}}}'))]",
+        "addvNet": "[and(not(empty(parameters('vNetResourceGroup'))),not(empty(parameters('vNetName'))),not(empty(parameters('subnetName'))))]",
+        "subnetRef": "[resourceId( parameters('vNetResourceGroup'), 'Microsoft.Network/virtualNetworks/subnets', parameters('vNetName'), parameters('subnetName'))]",
+        "vnetSubNetResourceIdRef": "[if(variables('addvNet'), resourceId( parameters('vNetResourceGroup'), 'Microsoft.Network/virtualNetworks/subnets', parameters('vNetName'), parameters('subnetName')),'')]",
+        "vNetRef": [
+            {
+                "vnetSubnetResourceId": "[variables('vnetSubNetResourceIdRef')]",
+                "action": "Allow",
+                "tag": "Default",
+                "priority": 100,
+                "name": "AllowAppGateway",
+                "description": "Allows traffic from AppGateway"
+            },
+            {
+                "ipAddress": "Any",
+                "action": "Deny",
+                "priority": 2147483647,
+                "name": "Deny all",
+                "description": "Deny all access"
+            }
+        ],
+        "webAppSlotNames": "[if(equals(parameters('webAppSlotList'), '') , split('emptyList', ','), split(parameters('webAppSlotList'), ','))]",
+        "deployToSlot": "[if(equals(parameters('webAppDeploySlot'), '') , false(), true())]"
+    },
+    "outputs": {
+        "webAppName": {
+            "type": "string",
+            "value": "[variables('webAppName')]"
+        },
+        "hostingPlanName": {
+            "type": "string",
+            "value": "[variables('hostingPlanName')]"
+        },
+        "appInsightsName": {
+            "type": "string",
+            "value": "[variables('appInsightsName')]"
+        },
+        "webAppUrl": {
+            "type": "string",
+            "value": "[concat('https://', variables('webAppName'), '.azurewebsites.net')]"
+        },
+        "identityName": {
+            "type": "string",
+            "value": "[variables('identityName')]"
+        },
+        "identityPrincipalId": {
+            "type": "string",
+            "value": "[ reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))).principalId]"
+        },
+        "identityClientId": {
+            "type": "string",
+            "value": "[ reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))).clientId]"
+        }
+    },
+    "resources": [
+        {
+            "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+            "name": "[variables('identityName')]",
+            "apiVersion": "2018-11-30",
+            "location": "[resourceGroup().location]",
+            "tags": {
+                "Department": "[parameters('department')]",
+                "AppName": "[parameters('appName')]",
+                "Environment": "[parameters('environment')]"
+            }
+        },
+        {
+            "type": "Microsoft.Web/serverfarms",
+            "apiVersion": "2019-08-01",
+            "name": "[variables('hostingPlanName')]",
+            "location": "[parameters('location')]",
+            "sku": {
+                "Name": "[parameters('sku')]"
+            },
+            "properties": {
+                "name": "[variables('hostingPlanName')]",
+
+                "workerSize": "[parameters('workerSize')]",
+                "numberOfWorkers": 1
+            },
+            "tags": {
+                "Department": "[parameters('department')]",
+                "AppName": "[parameters('appName')]",
+                "Environment": "[parameters('environment')]"
+            }
+        },
+        {
+            "apiVersion": "2015-05-01",
+            "name": "[variables('appInsightsName')]",
+            "type": "Microsoft.Insights/components",
+            "kind": "web",
+            "location": "[parameters('location')]",
+            "tags": {
+                "[concat('hidden-link:', resourceGroup().id, '/providers/Microsoft.Web/sites/', variables('webAppName'))]": "Resource"
+            },
+            "properties": {
+                "Application_Type": "web",
+                "ApplicationId": "[variables('appInsightsName')]",
+                "mode": "Incremental"
+            }
+        },
+        {
+
+            "type": "Microsoft.Web/sites",
+            "apiVersion": "2018-11-01",
+            "name": "[variables('webAppName')]",
+            "location": "[parameters('location')]",
+            "identity": "[variables('identity')]",
+            "kind": "app",
+            "properties": {
+                "name": "[variables('webAppName')]",
+                "enabled": true,
+                "serverFarmId": "[variables('hostingPlanName')]",
+                "hostingEnvironment": "",
+                "clientAffinityEnabled": "[parameters('clientAffinityEnabled')]",
+                "alwaysOn": "[parameters('alwaysOn')]",
+                "netFrameworkVersion": "v4.0",
+                "httpsOnly": true,
+                "siteConfig": {
+                    "metadata": [
+                        {
+                            "name": "CURRENT_STACK",
+                            "value": "dotnet"
+                        }
+                    ],
+                    "ipSecurityRestrictions": "[if(false(),variables('vNetRef'), json('null'))]",
+                    "minTlsVersion": "1.2"
+                }
+            },
+            "tags": {
+                "Department": "[parameters('department')]",
+                "AppName": "[parameters('appName')]",
+                "Environment": "[parameters('environment')]"
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
+                "[resourceId('Microsoft.Insights/components', variables('appInsightsName'))]",
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]"
+            ],
+            "resources": [
+                {
+                    "condition": "[variables('addvNet')]",
+                    "name": "virtualNetwork",
+                    "type": "networkConfig",
+                    "apiVersion": "2018-11-01",
+                    "location": "[parameters('location')]",
+                    "dependsOn": [
+                        "[concat('Microsoft.Web/sites/', variables('webAppName'))]"
+                    ],
+                    "properties": {
+                        "subnetResourceId": "[variables('subnetRef')]"
+                        
+                    }
+                }
+            ]
+        },
+        {
+            "condition": "[not(equals(variables('webAppSlotNames')[0],'emptyList'))]",
+            "apiVersion": "2018-11-01",
+            "name": "[concat(variables('webAppName'), '/',variables('webAppSlotNames')[copyIndex()])]",
+            "type": "Microsoft.Web/sites/slots",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/Sites', variables('webAppName'))]"
+            ],
+            "properties": {},
+            "resources": [],
+            "copy": {
+                "name": "slotCopy",
+                "count": "[length(variables('webAppSlotNames'))]"
+            }                    
+        },
+        {
+            "condition": "[not(variables('deployToSlot'))]",
+            "name": "[concat(variables('webAppName'), '/appsettings')]",
+            "type": "Microsoft.Web/sites/config",
+            "apiVersion": "2018-11-01",
+            "properties": {
+                "APPINSIGHTS_INSTRUMENTATIONKEY": "[reference(resourceId('microsoft.insights/components/', variables('appInsightsName')), '2015-05-01').InstrumentationKey]",
+                "APPLICATIONINSIGHTS_CONNECTION_STRING": "[reference(resourceId('microsoft.insights/components/', variables('appInsightsName')), '2015-05-01').ConnectionString]",
+                "ApplicationInsightsAgent_EXTENSION_VERSION": "~2",
+                "XDT_MicrosoftApplicationInsights_Mode": "default",
+                "DiagnosticServices_EXTENSION_VERSION": "disabled",
+                "APPINSIGHTS_PROFILERFEATURE_VERSION": "disabled",
+                "APPINSIGHTS_SNAPSHOTFEATURE_VERSION": "disabled",
+                "InstrumentationEngine_EXTENSION_VERSION": "disabled",
+                "SnapshotDebugger_EXTENSION_VERSION": "disabled",
+                "XDT_MicrosoftApplicationInsights_BaseExtensions": "disabled",
+                "ANCM_ADDITIONAL_ERROR_PAGE_LINK": "[concat('https://', variables('webAppName'), '.scm.azurewebsites.net/detectors')]",
+                "AzureServicesAuthConnectionString": "[concat('RunAs=App;AppId=', reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))).clientId, ';')]"
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/Sites', variables('webAppName'))]"
+            ]
+        },
+        {
+            "condition": "[variables('deployToSlot')]",
+            "name": "[concat(variables('webAppName'), '/',if(empty(parameters('webAppDeploySlot')),'empty',parameters('webAppDeploySlot')),'/appsettings')]",
+            "type": "Microsoft.Web/sites/slots/config",
+            "apiVersion": "2018-11-01",
+            "properties": {
+                "APPINSIGHTS_INSTRUMENTATIONKEY": "[reference(resourceId('microsoft.insights/components/', variables('appInsightsName')), '2015-05-01').InstrumentationKey]",
+                "APPLICATIONINSIGHTS_CONNECTION_STRING": "[reference(resourceId('microsoft.insights/components/', variables('appInsightsName')), '2015-05-01').ConnectionString]",
+                "ApplicationInsightsAgent_EXTENSION_VERSION": "~2",
+                "XDT_MicrosoftApplicationInsights_Mode": "default",
+                "DiagnosticServices_EXTENSION_VERSION": "disabled",
+                "APPINSIGHTS_PROFILERFEATURE_VERSION": "disabled",
+                "APPINSIGHTS_SNAPSHOTFEATURE_VERSION": "disabled",
+                "InstrumentationEngine_EXTENSION_VERSION": "disabled",
+                "SnapshotDebugger_EXTENSION_VERSION": "disabled",
+                "XDT_MicrosoftApplicationInsights_BaseExtensions": "disabled",
+                "ANCM_ADDITIONAL_ERROR_PAGE_LINK": "[concat('https://', variables('webAppName'), '.scm.azurewebsites.net/detectors')]",
+                "AzureServicesAuthConnectionString": "[concat('RunAs=App;AppId=', reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))).clientId, ';')]"
+            },
+            "dependsOn": [
+                "[if(variables('deployToSlot') , resourceId('Microsoft.Web/Sites/slots', variables('webAppName'), parameters('webAppDeploySlot')), resourceId('Microsoft.Web/Sites', variables('webAppName')))]"
+            ]
+        }
+    ]
+}

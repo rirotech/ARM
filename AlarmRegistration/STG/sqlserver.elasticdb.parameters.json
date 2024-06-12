@@ -1,0 +1,25 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "department": {
+      "value": "DTS"
+    },
+    "environment": {
+      "value": "dev"
+    },
+    "edition": {
+      "value": "Standard"
+    },
+    "databaseApp": {
+      "value": "AlarmReg"
+    }, 
+    "sqlServerName":{
+      "value": "dts-apps-dev-sql"
+    }, 
+    "elasticPoolName":{
+      "value": "dts-apps-dev-sql/dts-apps-dev-sqlep"
+    }
+  }
+}
+  
